@@ -3,9 +3,11 @@ import re
 import sys
 import os
 
+from photo import Photo
 
 
-'''
+
+'''`
 ARCHITECTURE IDEAS:
 
 1. Load whole dataset to memory (self.data), process images after
@@ -32,13 +34,17 @@ class Eye:
                 print(self.directory + filee)
                 img = cv.imread(self.directory + filee)
 
-                # [DELETE] - Used just to view dataset for debugging purpose
-                cv.imshow(filee, img)
-                cv.waitKey(0)
+                temp = Photo(filee, img)
+                temp.show()
+
+                # temp.threshold(120)
+                # temp.show()
 
                 # Not necessary to keep whole dataset in memory,
                 # could inspect photoes one by one
                 self.data.append(img)
+            
+            break
 
 
     def inspect():
