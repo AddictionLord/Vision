@@ -35,24 +35,36 @@ class Eye:
                 img = cv.imread(self.directory + filee)
 
                 temp = Photo(filee, img)
-                temp.show()
-
-                # temp.threshold(120)
-                # temp.show()
+                self.inspect(temp)
 
                 # Not necessary to keep whole dataset in memory,
                 # could inspect photoes one by one
-                self.data.append(img)
-            
-            break
+                # self.data.append(img)
 
 
-    def inspect():
+    def inspect(self, img):
 
-        # Process images
-        pass
+        # img.cropImage()
+        # img.smartThreshold()
+        # # img.show()
 
+        # img.makeContours()
+        # img.findSurface()
+        # # cv.imshow("Original", img.original)
+        # # img.show()
+        # img.save()
 
+        img.cropImage()
+        edges = img.processEdges()
+        img.smartThreshold()
+        img.makeContours()
+        img.addEdges(edges, img.photo)
+
+        # Surface visible
+        img.photo = img.detectEdges()
+        img.findSurface()
+        img.save()
+        # img.show()
 
 
 
