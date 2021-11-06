@@ -37,9 +37,18 @@ class Photo:
         self.photo = cv.Canny(img, 120, 0)
 
 
-    def detectCorners(self, block_size):
+    def detectCorners(self, block_size, aperture):
 
-        self.photo = cv.cornerHarris(self.photo, block_size, 3, .05)#, cv.BORDER_CONSTANT)
+        corners = cv.cornerHarris(self.photo, block_size, aperture, .05, cv.BORDER_CONSTANT)
+        # corners = cv.dilate(corners, None)
+        cv.imshow("corners", corners)
+        cv.waitKey(0)
+        cv.destroyAllWindows()  
+
+        # cv.cvtColor(self.photo, cv.COLOR_GRAY2BGR)
+        # print(self.photo.shape)
+        # self.photo[corners > 0.01 * corners.max()] = [0, 0, 255]
+        # print(corners.shape)
 
 
 
@@ -55,8 +64,13 @@ if __name__ == "__main__":
 
     # p.computeThreshold(120)
     # p.computeAdaptiveThreshold()
+
+    # Surface visible
     p.detectEdges()
-    # p.detectCorners(3)
+
+    # Surface visible
+    # p.detectCorners(2, 31)
+    # p.detectCorners(20, 13)
 
     p.show()
     cv.destroyAllWindows()
