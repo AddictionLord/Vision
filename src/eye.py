@@ -7,16 +7,6 @@ from photo import Photo
 
 
 
-'''`
-ARCHITECTURE IDEAS:
-
-1. Load whole dataset to memory (self.data), process images after
-
-2. Load images one by one and call self.inspect function in self.load_dataset
-'''
-
-
-
 
 class Eye:
 
@@ -25,6 +15,10 @@ class Eye:
         self.data = list()
 
 
+    # ---------------------------------------------------------------------------------------
+    # Iterates over self.directory files, if the file format is png
+    # the file (image) is loaded, instantiated (class Photo) and
+    # processed by self.inspect() fcn 
     def load_dataset(self):
 
         for filee in os.listdir(self.directory):
@@ -37,40 +31,48 @@ class Eye:
                 temp = Photo(filee, img)
                 self.inspect(temp)
 
-                # Not necessary to keep whole dataset in memory,
-                # could inspect photoes one by one
-                # self.data.append(img)
 
-
+    # ---------------------------------------------------------------------------------------
+    # Argument img is instance of class Photo, this
+    # does all the image processing and saves the result
     def inspect(self, img):
 
-        # img.cropImage()
-        # img.smartThreshold()
-        # # img.show()
-
-        # img.makeContours()
-        # img.findSurface()
-        # # cv.imshow("Original", img.original)
-        # # img.show()
-        # img.save()
-
+        # First crop the photo
+        # (original photo is lost)
         img.cropImage()
-        edges = img.processEdges()
-        img.smartThreshold()
-        img.makeContours()
-        img.addEdges(edges, img.photo)
 
-        # Surface visible
+        # Detect edges from cropped photo (only the top part)
+        edges = img.makeMaskWithDetectedEgdes(img.photo)
+
+        # Threshold the photo 
+        # (original photo is lost)
+        img.computeThreshold()
+
+        # Find and keep the largest contours only 
+        # (original photo is lost)
+        img.findLargestContrours()
+
+        # Add edges to largest contour to have mask of whole bottle,
+        # result is returned from the fcn
+        img.photo = img.addEdgesToImage(edges, img.photo)
+
+        # Detect edges on the mask to have only outline of top part of the bottle
+        # (original photo is lost)
         img.photo = img.detectEdges()
+
+        # Find top and bottom white point (bottle top and surface)
+        # (added to original photo - img.photo)
         img.findSurface()
+
+        # Save the image
         img.save()
-        # img.show()
 
 
 
 
-
-
+# ---------------------------------------------------------------------------------------
+# MAIN
+# ---------------------------------------------------------------------------------------
 if __name__ == "__main__":
 
     e = Eye("../data/")
