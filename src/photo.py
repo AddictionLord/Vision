@@ -131,11 +131,14 @@ class Photo:
                     down = (column, row)
                     break
 
-        surface =  up[1] - down[1]
-        heihgt = (1002 - down[1])*(95/437)
-        print("DOWN: ", down[1])
-        print("UP: ", up[1])
-        print("HEIGHT: ", heihgt)
+        delka_cele_flasky_v_milimetrech = 220 # UPRAVTE
+        pocet_pixelu_cele_flasky = 990
+        pixely_na_milimetry = delka_cele_flasky_v_milimetrech/pocet_pixelu_cele_flasky
+        delka_horni_pulky_flasky_v_pixlech =  up[1] - down[1]
+        delka_horni_pulky_flasky_v_milimetrech = delka_horni_pulky_flasky_v_pixlech*pixely_na_milimetry
+        hladina_v_milimetrech = delka_cele_flasky_v_milimetrech - delka_horni_pulky_flasky_v_milimetrech
+        
+        print('hladina_v_milimetrech:', hladina_v_milimetrech)
 
         self.photo = cv.line(self.photo, (20, up[1]), (20, down[1]), (255, 255, 255), 1)
 
