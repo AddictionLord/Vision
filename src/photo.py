@@ -5,8 +5,14 @@ import skimage
 from skimage import measure
 
 
+
+
+# Points for image cropping
 TOP_LEFT = (630, 100)
 BOT_RIGHT = (1050, 1202)
+
+# THis is substracted from mean value (for thresholding)
+# see fcn computeThreshold for more
 THRESH_RANGE = 30
 
 
@@ -15,104 +21,122 @@ THRESH_RANGE = 30
 class Photo:
     def __init__(self, name: str, photo):
         self.name = name
+        # Converts image to GRAY format, only one channel is maintained
         self.photo = cv.cvtColor(photo, cv.COLOR_BGR2GRAY)
-        self.surface_height = None
-        self.original = None
-
-        print(self.photo.shape)
-
-        # List of 4 values (for croping the bottle)
-        self.boundaries = list()
 
 
+    # ---------------------------------------------------------------------------------------
+    # Magic method to display name of the photos in arrays
     def __repr__(self):
 
         return f"{self.name}"
 
 
+    # ---------------------------------------------------------------------------------------
+    # Image is saved to given directory, path is relative to script src directory
+    # Note that image is NOT SAVED when DIRECTORY DOES NOT EXISTS
     def save(self, directory = '../data/processed/'):
 
         print("Saved to: ", directory)
         cv.imwrite(directory + str(self.name), self.photo)
 
-    
+
+    # ---------------------------------------------------------------------------------------
+    # Image is shown when method is called, press any key to close
+    # the image and continue to run the script
     def show(self):
 
         cv.imshow(self.name, self.photo)
         cv.waitKey(0)
         cv.destroyAllWindows()  
 
-    
-    def computeThreshold(self, boundary, maxval = 255):
 
-        _, self.photo = cv.threshold(self.photo, boundary, maxval, cv.THRESH_BINARY)
-
-
-    def computeAdaptiveThreshold(self):
-
-        self.photo = cv.adaptiveThreshold(self.photo, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 101, 0)
-
-
-    def detectEdges(self):
-
-        edges = cv.Canny(self.photo, 120, 2)
-        return edges
-
-
-    def detectCorners(self, block_size, aperture):
-
-        corners = cv.cornerHarris(self.photo, block_size, aperture, .05, cv.BORDER_CONSTANT)
-        # corners = cv.dilate(corners, None)
-        cv.imshow("corners", corners)
-        cv.waitKey(0)
-        cv.destroyAllWindows()  
-
-        # cv.cvtColor(self.photo, cv.COLOR_GRAY2BGR)
-        # print(self.photo.shape)
-        # self.photo[corners > 0.01 * corners.max()] = [0, 0, 255]
-        # print(corners.shape)
-
-
-    def drawRectangle(self, start_point, end_point):
-
-        self.photo = cv.rectangle(self.photo, start_point, end_point, (255, 0, 0), 1)
-
-
+    # ---------------------------------------------------------------------------------------
+    # Crops the image, takes top_left and bottom_right corner as arguments,
+    # crops is made directly, original image is lost
     def cropImage(self, top_left = TOP_LEFT, bot_right = BOT_RIGHT):
 
         self.photo = self.photo[top_left[1]:bot_right[1], top_left[0]:bot_right[0]]
-        self.original = self.photo.copy()
 
 
+    # ---------------------------------------------------------------------------------------
+    # Returns mask with edges of top part of the image
+    def makeMaskWithDetectedEgdes(self, srcImg):
+
+        # Make copy of original image
+        image = srcImg.copy()
+        # Crop the image (only top part remains)
+        image = image[0:250, 0:image.shape[1]]
+
+        #Detect edges and return mask
+        return cv.Canny(image, 120, 2)
+
+
+    # ---------------------------------------------------------------------------------------
     # Computes mean value of pixels from rectangle placed in the light part of the bottle
     # the photo NEEDS TO BE CROPPED alredy by Photo.cropImage() for this to work!
-    def computeMeanFromCrop(self):
+    def _computeMeanFromCrop(self):
 
-        rectangle = self.photo[75:375, 100:300]
+        rectangle = self.photo.copy()[75:375, 100:300]
         return np.mean(rectangle)
 
 
-    def  smartThreshold(self):
+    # ---------------------------------------------------------------------------------------
+    # Computes threshold of self.photo into self.photo - original image is lost
+    # thresh value is computed in fcn, see computeMeanFromCrop()
+    def computeThreshold(self, maxval = 255):
 
-        mean = self.computeMeanFromCrop()
-        img = self.photo.copy()
+        mean = self._computeMeanFromCrop()
+        _, self.photo = cv.threshold(self.photo, mean - THRESH_RANGE, maxval, cv.THRESH_BINARY)
+
+
+    # ---------------------------------------------------------------------------------------
+    # Takes self.photo, finds all contours with 10k+ pixels and draws it to the mask
+    # which is assigned to self.photo (original image is lost)
+    def findLargestContrours(self):
+
+        contours, hierarchy = cv.findContours(self.photo, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
+        mask = np.zeros(self.photo.shape, np.uint8)
         
-        for row in range(0, len(self.photo)):
-            for column in range(0, len(self.photo[0])):
+        for cnt in contours:
+            if 10000<cv.contourArea(cnt):
+                cv.drawContours(mask,[cnt], 0, 255, -1)
 
-                if self.photo[row][column] > mean - THRESH_RANGE:
-                    img[row][column] = 255
-                else: 
-                    img[row][column] = 0
-
-        self.photo = img
+        self.photo = mask
 
 
-    def blur(self):
+    # ---------------------------------------------------------------------------------------
+    # Pass edges from fcn makeMaskWithDetectedEgdes() and srcImg
+    # all pixels with value above 100 will be added to copy of 
+    # srcImg which is returned
+    def addEdgesToImage(self, edges, srcImg):
 
-        self.photo = cv.GaussianBlur(self.photo, (5, 5), 0)
+        toImg = srcImg.copy()
+
+        rows = edges.shape[0]
+        cols = edges.shape[1]
+        black = 0
+        white = 255
+
+        for row in range(0, rows):
+            for col in range(0, cols):
+                if edges[row][col] >= 100:
+                    toImg[row][col] = white
+
+        return toImg
 
 
+    # ---------------------------------------------------------------------------------------
+    # returns detected edges from the self.photo
+    def detectEdges(self):
+
+        return cv.Canny(self.photo, 120, 2)
+
+
+    # ---------------------------------------------------------------------------------------
+    # Takes mask (whatever it is), detects top white point (255) and 
+    # bottom white point (255), connects this two points and draw vertical line
+    # on the left side of the photo (represents height of empty part - without liquid)
     def findSurface(self):
 
         for row in range(0, len(self.photo)):
@@ -141,92 +165,47 @@ class Photo:
         print('hladina_v_milimetrech:', hladina_v_milimetrech)
 
         self.photo = cv.line(self.photo, (20, up[1]), (20, down[1]), (255, 255, 255), 1)
-
         self.photo = cv.line(self.photo, up, down, (255, 255, 255), 1)
 
 
-    def makeContours(self):
-
-        contours, hierarchy = cv.findContours(self.photo, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
-        # self.photo = cv.drawContours(self.photo, contours, -1, (0,255,0), 3)
-        mask = np.zeros(self.photo.shape,np.uint8)
-        
-        for cnt in contours:
-            if 10000<cv.contourArea(cnt):
-                print(cv.contourArea(cnt))
-                cv.drawContours(self.photo,[cnt],0,255,1)
-                cv.drawContours(mask,[cnt],0,255,-1)
-
-        self.photo = mask
 
 
-    def addEdges(self, edges, toImg):
-
-        rows = edges.shape[0]
-        cols = edges.shape[1]
-        black = 0
-        white = 255
-
-        for row in range(0, rows):
-            for col in range(0, cols):
-                if edges[row][col] >= 100:
-                    toImg[row][col] = white
-
-        return toImg
-
-
-    def processEdges(self):
-
-        image = self.photo.copy()
-        image = image[0:250, 0:image.shape[1]]
-        edges = cv.Canny(image, 120, 2)
-
-        return edges
-
-
-
+# ---------------------------------------------------------------------------------------
+# MAIN - Only for testing/debugging purposes
+# ---------------------------------------------------------------------------------------
 if __name__ == "__main__":
 
+    # Load the image from directory
     img = cv.imread("../data/flaska95.png")
+
+    # Create instance of class Photo
     p = Photo("bottle", img)
 
     # First crop the photo
     p.cropImage()
-    edges = p.processEdges()
-    p.smartThreshold()
-    p.makeContours()
-    p.addEdges(edges, p.photo)
 
+    # Detect edges from cropped photo
+    edges = p.makeMaskWithDetectedEgdes(p.photo)
 
-    # p.pickRegion()
+    # Threshold the photo
+    p.computeThreshold()
 
-    # p.findSurface()
+    # Find and keep only the largest contour
+    p.findLargestContrours()
 
-    # p.blur()
+    # Add edges to largest contour to have mask of whole bottle
+    p.photo = p.addEdgesToImage(edges, p.photo)
 
-
-    # p.drawRectangle((100,75), (300, 375))
-
-    # p.computeThreshold(120)
-    # p.computeAdaptiveThreshold()
-
-    # Surface visible
+    # Detect edges on the mask to have only outline of top part of the bottle
     p.photo = p.detectEdges()
 
-    # Surface visible
-    # p.detectCorners(2, 31)
-    # p.detectCorners(20, 13)
+    # Find top and bottom white point
+    # (cover and surface)
+    p.findSurface()
 
-    # p.drawRectangle(TOP_LEFT, BOT_RIGHT)
-
-    # histogram = cv.calcHist([p.photo],[0],None,[256],[0,256])
-    # plt.plot(histogram)
-    # plt.show()
-
-    # p.photo = cv.normalize(p.photo, p.photo, 0, 255, cv.NORM_MINMAX)
-
-    # cv.imshow("Original", p.original)
-    # print("Final")
+    # Show the processed image
     p.show()
+
+    # Close all windows in the end of the script
     cv.destroyAllWindows()
 
