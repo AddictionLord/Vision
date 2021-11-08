@@ -5,6 +5,10 @@ import os
 
 from photo import Photo
 
+CUR_PATH = os.path.dirname(__file__)
+CUR_PATH_ONE_UP, _ = os.path.split(CUR_PATH)
+PATH_DATA = os.path.join(CUR_PATH_ONE_UP,'data')
+
 
 
 
@@ -25,8 +29,9 @@ class Eye:
             png = re.search("png$", filee)
 
             if png:
-                print(self.directory + filee)
-                img = cv.imread(self.directory + filee)
+                imgPATH = os.path.join(self.directory, filee)
+                print("Image:", imgPATH)
+                img = cv.imread(imgPATH)
 
                 temp = Photo(filee, img)
                 self.inspect(temp)
@@ -75,5 +80,5 @@ class Eye:
 # ---------------------------------------------------------------------------------------
 if __name__ == "__main__":
 
-    e = Eye("../data/")
+    e = Eye(PATH_DATA)
     e.load_dataset()
